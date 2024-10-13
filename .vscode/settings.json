@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Arcade-Machine.sln"
+    "dotnet.defaultSolution": "arcade-machine.sln"
 }
