@@ -1,19 +1,20 @@
 using System;
 using System.Diagnostics;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using JetBrains.Annotations; // For EventTrigger
 
 public class FindGameFiles : MonoBehaviour
 {
     [SerializeField] private string gamesDirectory;
     private PlayerInput input;
     private Process process;
+    private bool isGameRunning = false;
+
     public GameObject buttonPrefab; // Assign a Button prefab in the Unity Inspector
     public Transform buttonContainer; // Assign a UI container to hold the buttons (like a ScrollView)
 
@@ -30,6 +31,29 @@ public class FindGameFiles : MonoBehaviour
         FindGameBuilds(gamesDirectory);
         CreateGameButtons();
         input = GetComponent<PlayerInput>();
+    }
+
+    void Update()
+    {
+        // Check for the controller button combination while a game is running
+        if (isGameRunning && process != null && !process.HasExited)
+        {
+            if (CheckExitCombination())
+            {
+                OnExitGame();
+            }
+        }
+    }
+
+    bool CheckExitCombination()
+    {
+        var gamepad = Gamepad.current;
+        if (gamepad != null)
+        {
+            // Checking Start + Select button combo
+            return gamepad.startButton.isPressed && gamepad.selectButton.isPressed;
+        }
+        return false;
     }
 
     void FindGameBuilds(string directory)
@@ -86,76 +110,75 @@ public class FindGameFiles : MonoBehaviour
         return null;
     }
 
-GameInfo LoadGameInfo(string buildsFolderPath)
-{
-    string title = "Unknown Title";
-    string description = "No Description";
-    string authors = "Unknown Authors";
-    Texture2D coverArt = null;
-    string executablePath = null;
-
-    // Check for title.txt, description.txt, and authors.txt
-    string titleFile = Path.Combine(buildsFolderPath, "title.txt");
-    string descriptionFile = Path.Combine(buildsFolderPath, "description.txt");
-    string authorsFile = Path.Combine(buildsFolderPath, "authors.txt");
-
-    if (File.Exists(titleFile))
+    GameInfo LoadGameInfo(string buildsFolderPath)
     {
-        title = File.ReadAllText(titleFile);
-    }
+        string title = "Unknown Title";
+        string description = "No Description";
+        string authors = "Unknown Authors";
+        Texture2D coverArt = null;
+        string executablePath = null;
 
-    if (File.Exists(descriptionFile))
-    {
-        description = File.ReadAllText(descriptionFile);
-    }
+        // Check for title.txt, description.txt, and authors.txt
+        string titleFile = Path.Combine(buildsFolderPath, "title.txt");
+        string descriptionFile = Path.Combine(buildsFolderPath, "description.txt");
+        string authorsFile = Path.Combine(buildsFolderPath, "authors.txt");
 
-    if (File.Exists(authorsFile))
-    {
-        authors = File.ReadAllText(authorsFile);
-    }
-
-    // Check for an optional cover art (e.g., cover.png)
-    string[] coverArtExtensions = { ".png", ".jpg" };
-    foreach (string extension in coverArtExtensions)
-    {
-        string coverArtPath = Path.Combine(buildsFolderPath, "cover" + extension);
-        if (File.Exists(coverArtPath))
+        if (File.Exists(titleFile))
         {
-            coverArt = LoadImage(coverArtPath); // Load the cover art into a texture
-            break;
+            title = File.ReadAllText(titleFile);
         }
-    }
 
-    // Find the valid executable file (exclude UnityCrashHandler64.exe)
-    executablePath = FindExecutableFile(buildsFolderPath);
-
-    if (string.IsNullOrEmpty(executablePath))
-    {
-        UnityEngine.Debug.LogWarning($"No valid executable found in: {buildsFolderPath}");
-    }
-
-    return new GameInfo(title, description, authors, coverArt, buildsFolderPath, executablePath);
-}
-
-string FindExecutableFile(string buildsFolderPath)
-{
-    // Get all .exe files in the builds folder and its subdirectories
-    string[] exeFiles = Directory.GetFiles(buildsFolderPath, "*.exe", SearchOption.AllDirectories);
-
-    foreach (string exeFile in exeFiles)
-    {
-        string fileName = Path.GetFileName(exeFile);
-
-        // Ignore UnityCrashHandler64.exe
-        if (!fileName.Equals("UnityCrashHandler64.exe", System.StringComparison.OrdinalIgnoreCase))
+        if (File.Exists(descriptionFile))
         {
-            return exeFile; // Return the path to the first valid executable found
+            description = File.ReadAllText(descriptionFile);
         }
+
+        if (File.Exists(authorsFile))
+        {
+            authors = File.ReadAllText(authorsFile);
+        }
+
+        // Check for an optional cover art (e.g., cover.png)
+        string[] coverArtExtensions = { ".png", ".jpg" };
+        foreach (string extension in coverArtExtensions)
+        {
+            string coverArtPath = Path.Combine(buildsFolderPath, "cover" + extension);
+            if (File.Exists(coverArtPath))
+            {
+                coverArt = LoadImage(coverArtPath); // Load the cover art into a texture
+                break;
+            }
+        }
+
+        // Find the valid executable file (exclude UnityCrashHandler64.exe)
+        executablePath = FindExecutableFile(buildsFolderPath);
+
+        if (string.IsNullOrEmpty(executablePath))
+        {
+            UnityEngine.Debug.LogWarning($"No valid executable found in: {buildsFolderPath}");
+        }
+
+        return new GameInfo(title, description, authors, coverArt, buildsFolderPath, executablePath);
     }
 
-    return null; // No valid executable found
-}
+    string FindExecutableFile(string buildsFolderPath)
+    {
+        // Get all .exe files in the builds folder and its subdirectories
+        string[] exeFiles = Directory.GetFiles(buildsFolderPath, "*.exe", SearchOption.AllDirectories);
 
+        foreach (string exeFile in exeFiles)
+        {
+            string fileName = Path.GetFileName(exeFile);
+
+            // Ignore UnityCrashHandler64.exe
+            if (!fileName.Equals("UnityCrashHandler64.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return exeFile; // Return the path to the first valid executable found
+            }
+        }
+
+        return null; // No valid executable found
+    }
 
     Texture2D LoadImage(string filePath)
     {
@@ -165,119 +188,115 @@ string FindExecutableFile(string buildsFolderPath)
         return texture;
     }
 
-    
-
-void CreateGameButtons()
-{
-    foreach (GameInfo game in gamesList)
+    void CreateGameButtons()
     {
-        GameObject newButton = Instantiate(buttonPrefab, buttonContainer);
+        foreach (GameInfo game in gamesList)
+        {
+            GameObject newButton = Instantiate(buttonPrefab, buttonContainer);
 
-        // Set the button's text to display the game title
-        Text titleText = newButton.transform.Find("Text").GetComponent<Text>();
-        titleText.text = game.title;
+            // Set the button's text to display the game title
+            Text titleText = newButton.transform.Find("Text").GetComponent<Text>();
+            titleText.text = game.title;
 
-        // Add listener to handle button selection (controller or mouse hover)
-        AddEventTrigger(newButton, EventTriggerType.Select, () => DisplayGameInfo(game));
+            // Add listener to handle button selection (controller or mouse hover)
+            AddEventTrigger(newButton, EventTriggerType.Select, () => DisplayGameInfo(game));
 
-        // Optional: Handle mouse hover
-        AddEventTrigger(newButton, EventTriggerType.PointerEnter, () => DisplayGameInfo(game));
+            // Optional: Handle mouse hover
+            AddEventTrigger(newButton, EventTriggerType.PointerEnter, () => DisplayGameInfo(game));
 
-        // Add listener to launch the game when the button is clicked
-        newButton.GetComponent<Button>().onClick.AddListener(() => LaunchGame(game));
-    }
-}
-
-
-
-// Helper method to add EventTriggers for various event types
-void AddEventTrigger(GameObject button, EventTriggerType eventType, UnityEngine.Events.UnityAction action)
-{
-    EventTrigger trigger = button.GetComponent<EventTrigger>();
-    if (trigger == null)
-    {
-        trigger = button.AddComponent<EventTrigger>();
+            // Add listener to launch the game when the button is clicked
+            newButton.GetComponent<Button>().onClick.AddListener(() => LaunchGame(game));
+        }
     }
 
-    EventTrigger.Entry entry = new EventTrigger.Entry
+    void AddEventTrigger(GameObject button, EventTriggerType eventType, UnityEngine.Events.UnityAction action)
     {
-        eventID = eventType
-    };
-    entry.callback.AddListener((eventData) => action());
-    trigger.triggers.Add(entry);
-    
+        EventTrigger trigger = button.GetComponent<EventTrigger>();
+        if (trigger == null)
+        {
+            trigger = button.AddComponent<EventTrigger>();
+        }
 
-}
-
-public void LaunchGame(GameInfo game)
-{
-    if (string.IsNullOrEmpty(game.executablePath))
-    {
-        UnityEngine.Debug.LogError($"No executable found for the game: {game.title}");
-        return;
+        EventTrigger.Entry entry = new EventTrigger.Entry
+        {
+            eventID = eventType
+        };
+        entry.callback.AddListener((eventData) => action());
+        trigger.triggers.Add(entry);
     }
 
-    try
+    public void LaunchGame(GameInfo game)
     {
-        // Launch the game's executable
-        process = Process.Start(game.executablePath);
-        //Process.Start(game.executablePath);
-        UnityEngine.Debug.Log($"Launching game: {game.title} at {game.executablePath}");
-    }
-    catch (System.Exception e)
-    {
-        // Catch any exceptions that may occur during the game launch
-        UnityEngine.Debug.LogError($"Failed to launch game: {game.title}. Error: {e.Message}");
-    }
-}
+        if (string.IsNullOrEmpty(game.executablePath))
+        {
+            UnityEngine.Debug.LogError($"No executable found for the game: {game.title}");
+            return;
+        }
 
-public void OnExitGame()
-{
-    if (process != null && !process.HasExited)
-    {
         try
         {
-            UnityEngine.Debug.Log("Exiting game...");
-            process.Kill(); // Kill the process directly
-            process = null; // Clear the process reference after killing
+            // Launch the game's executable
+            process = Process.Start(game.executablePath);
+            UnityEngine.Debug.Log($"Launching game: {game.title} at {game.executablePath}");
+
+            isGameRunning = true; // Set the game running flag
         }
         catch (System.Exception e)
         {
-            UnityEngine.Debug.LogError($"Failed to exit the game. Error: {e.Message}");
+            UnityEngine.Debug.LogError($"Failed to launch game: {game.title}. Error: {e.Message}");
         }
     }
-    else
+
+    public void OnExitGame()
     {
-        UnityEngine.Debug.Log("No game process is currently running.");
+        if (process != null && !process.HasExited)
+        {
+            try
+            {
+                UnityEngine.Debug.Log("Exiting game...");
+                process.Kill(); // Kill the process directly
+                process = null; // Clear the process reference after killing
+                isGameRunning = false;
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.LogError($"Failed to exit the game. Error: {e.Message}");
+            }
+        }
+        else
+        {
+            UnityEngine.Debug.Log("No game process is currently running.");
+        }
     }
-}
 
-
-
-
-void DisplayGameInfo(GameInfo game)
-{
-    UnityEngine.Debug.Log($"Displaying info for game: {game?.title}");
-
-    if (game == null)
+    void DisplayGameInfo(GameInfo game)
     {
-        UnityEngine.Debug.LogError("Game object is null.");
-        return;
+        UnityEngine.Debug.Log($"Displaying info for game: {game?.title}");
+
+        if (game == null)
+        {
+            UnityEngine.Debug.LogError("Game object is null.");
+            return;
+        }
+
+        infoTitle.text = game.title;
+        infoDescription.text = game.description;
+        infoAuthors.text = game.authors;
+
+        if (game.coverArt != null)
+        {
+            infoCoverArt.sprite = Sprite.Create(game.coverArt, new Rect(0, 0, game.coverArt.width, game.coverArt.height), new Vector2(0.5f, 0.5f));
+            infoCoverArt.gameObject.SetActive(true);
+        }
+        else
+        {
+            infoCoverArt.gameObject.SetActive(false);
+        }
     }
 
-    infoTitle.text = game.title;
-    infoDescription.text = game.description;
-    infoAuthors.text = game.authors;
-
-    if (game.coverArt != null)
+    void OnApplicationQuit()
     {
-        infoCoverArt.sprite = Sprite.Create(game.coverArt, new Rect(0, 0, game.coverArt.width, game.coverArt.height), new Vector2(0.5f, 0.5f));
-        infoCoverArt.gameObject.SetActive(true);
+        // Make sure the game process is killed if the Unity app quits
+        OnExitGame();
     }
-    else
-    {
-        infoCoverArt.gameObject.SetActive(false);
-    }
-}
-
 }
