@@ -5,11 +5,15 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems; // For EventTrigger
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using JetBrains.Annotations; // For EventTrigger
 
 public class FindGameFiles : MonoBehaviour
 {
     [SerializeField] private string gamesDirectory;
+    private PlayerInput input;
+    private Process process;
     public GameObject buttonPrefab; // Assign a Button prefab in the Unity Inspector
     public Transform buttonContainer; // Assign a UI container to hold the buttons (like a ScrollView)
 
@@ -25,6 +29,7 @@ public class FindGameFiles : MonoBehaviour
     {
         FindGameBuilds(gamesDirectory);
         CreateGameButtons();
+        input = GetComponent<PlayerInput>();
     }
 
     void FindGameBuilds(string directory)
@@ -81,7 +86,7 @@ public class FindGameFiles : MonoBehaviour
         return null;
     }
 
-    GameInfo LoadGameInfo(string buildsFolderPath)
+GameInfo LoadGameInfo(string buildsFolderPath)
 {
     string title = "Unknown Title";
     string description = "No Description";
@@ -132,7 +137,6 @@ public class FindGameFiles : MonoBehaviour
     return new GameInfo(title, description, authors, coverArt, buildsFolderPath, executablePath);
 }
 
-// Method to find the game's executable file in the builds folder
 string FindExecutableFile(string buildsFolderPath)
 {
     // Get all .exe files in the builds folder and its subdirectories
@@ -205,7 +209,7 @@ void AddEventTrigger(GameObject button, EventTriggerType eventType, UnityEngine.
 
 }
 
-void LaunchGame(GameInfo game)
+public void LaunchGame(GameInfo game)
 {
     if (string.IsNullOrEmpty(game.executablePath))
     {
@@ -216,7 +220,8 @@ void LaunchGame(GameInfo game)
     try
     {
         // Launch the game's executable
-        Process.Start(game.executablePath);
+        process = Process.Start(game.executablePath);
+        //Process.Start(game.executablePath);
         UnityEngine.Debug.Log($"Launching game: {game.title} at {game.executablePath}");
     }
     catch (System.Exception e)
@@ -225,6 +230,28 @@ void LaunchGame(GameInfo game)
         UnityEngine.Debug.LogError($"Failed to launch game: {game.title}. Error: {e.Message}");
     }
 }
+
+public void OnExitGame()
+{
+    if (process != null && !process.HasExited)
+    {
+        try
+        {
+            UnityEngine.Debug.Log("Exiting game...");
+            process.Kill(); // Kill the process directly
+            process = null; // Clear the process reference after killing
+        }
+        catch (System.Exception e)
+        {
+            UnityEngine.Debug.LogError($"Failed to exit the game. Error: {e.Message}");
+        }
+    }
+    else
+    {
+        UnityEngine.Debug.Log("No game process is currently running.");
+    }
+}
+
 
 
 

@@ -8,12 +8,15 @@ using UnityEngine.InputSystem;
 public class Launcher : MonoBehaviour
 {
 
-    private PlayerInput input;
+    //private PlayerInput input;
 
     void Start()
     {
-        input = GetComponent<PlayerInput>();
+        //input = GetComponent<PlayerInput>();
     }
+
+
+    
 
     // This function will be called to launch the exe
     public void LoadGame()
@@ -25,7 +28,7 @@ public class Launcher : MonoBehaviour
             process.EnableRaisingEvents = true;
             process.Exited += new System.EventHandler(handler);
 
-            input.DeactivateInput();
+            //input.DeactivateInput();
 
             process.Start();
             UnityEngine.Debug.Log("Application launched successfully!");
@@ -40,7 +43,7 @@ public class Launcher : MonoBehaviour
             process.EnableRaisingEvents = true;
             process.Exited += new System.EventHandler(handler);
 
-            input.DeactivateInput();
+            //input.DeactivateInput();
 
             process.Start();
             UnityEngine.Debug.Log("Application launched successfully!");
@@ -48,7 +51,7 @@ public class Launcher : MonoBehaviour
 
     public void handler(object sender, System.EventArgs e){
         UnityEngine.Debug.Log("exited process");
-        input.ActivateInput();
+        //input.ActivateInput();
 
         if (sender is Process process)
         {
