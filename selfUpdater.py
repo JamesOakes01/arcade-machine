@@ -1,6 +1,7 @@
 import os
 import git
 from git import Repo
+import gamesUpdater
 
 def update_from_git(repo_path, branch="main"):
     """Updates the code from a Git repository."""
@@ -26,4 +27,4 @@ def update_from_git(repo_path, branch="main"):
 
 repo_path = os.path.dirname(os.path.abspath(__file__))
 update_from_git(repo_path)
-
+gamesUpdater.run()
