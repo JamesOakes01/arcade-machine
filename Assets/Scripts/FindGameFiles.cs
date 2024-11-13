@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 
 public class FindGameFiles : MonoBehaviour
 {
-    [SerializeField] private string gamesDirectory;
+    private string gamesDirectory = "GameBuilds";
     private PlayerInput input;
     private Process process;
     private bool isGameRunning = false;
