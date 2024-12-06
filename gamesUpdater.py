@@ -27,7 +27,7 @@ def update_repo(repo_path):
 def run():
     REPOLIST = "GameRepos.csv"
     REPODIR = "GameBuilds"
-    LAUNCHERPATH = "Build/arcade-machine.exe"
+    LAUNCHERPATH = "Build/Arcade-Machine.exe"
     
     check_for_new(REPOLIST, REPODIR)
     
